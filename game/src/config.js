@@ -2,6 +2,8 @@
 // Everything the other files need to agree on lives here: canvas size, HUD
 // geometry, speeds, vision, alarm and tool numbers. One change here retunes the
 // whole game; nothing else hard-codes a number that matters.
+// The floor is bright enough for the vision cones to read against it, and the
+// thief is drawn big (radius 16) so the player is unmistakable at a glance.
 export const VIEW = { width: 1280, height: 720 };
 export const STEP = 1 / 60;
 
@@ -10,9 +12,11 @@ export const HUD = { top: 56, bottom: 48, panel: 184 };
 export const ROOM = { x: 8, y: 64, width: 1080, height: 600 };
 
 // Colours: night gallery — deep blue, warm gold for loot, red for danger.
+// The floor is lifted a shade so the room reads bright, not murky, and the
+// pale vision cones stand out against it instead of washing out.
 export const COLOUR = {
-  floorA: '#1b2138',
-  floorB: '#171c30',
+  floorA: '#232a47',
+  floorB: '#1c2338',
   wall: '#0d1120',
   trim: '#8a6d2f',
   caseFill: '#232c4a',
@@ -30,6 +34,10 @@ export const COLOUR = {
 };
 
 // The thief: Kestrel. Run fast, sneak slow and half as noticeable.
+// NOTE: radius stays 11 for collision — it is the movement circle in
+// stepThief/moveCircle, not just a drawing size. Raising it to 16 changed
+// the escape route's timing and got the thief caught on the way out. The
+// BIG visible figure (16 px + bold YOU label) is drawn in render.js.
 export const THIEF = {
   radius: 11,
   run: 168,

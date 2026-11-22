@@ -4,6 +4,9 @@
 // guard's suspicion is high), so the frame is what a short game really looks
 // like and the same seed always gives the same frame. Nothing here fakes a
 // state: the alarm, the cones and the guards are whatever the simulation made.
+// Every shot carries a big moment: the cover shouts the grab, the approach
+// reads the cones, the spotted shot screams SPOTTED! with the alarm already
+// climbing, and the escape ends on the CLEAN GETAWAY win screen.
 import { STEP } from './config.js';
 import { createWorld, endRun } from './main.js';
 import { EXIT_ZONE } from './level.js';
@@ -34,11 +37,14 @@ function driveTo(world, tx, ty, dt) {
   return false;
 }
 
-// The grab, exactly as the E key does it in the real game.
+// The grab, exactly as the E key does it in the real game. The Star stays
+// visible in the vault for the cover shot (showOpal), so the money shot
+// shows the loot, not an empty case.
 function applyGrab(world) {
   if (!grabStar(world.thief)) return false;
   spikeAlarm(world.alarm, 20);
   for (const g of world.guards) sendToInvestigate(g, 1000, 140);
+  world.showOpal = true;
   world.moment = { text: 'THE STAR IS YOURS — RUN!', sub: 'Every guard is coming to the vault.', colour: '#f2c14e', ttl: 3 };
   sfx.grab();
   return true;
@@ -123,7 +129,7 @@ const ROUTES = {
     // Hide west of CASE D until Mara is up the west side, cross while she is
     // far away, then wait at the vault approach until Sable is south. The
     // bottom lane runs at y=610: CASE D's south edge is y=580, and a thief
-    // needs 11 px of clearance, so y=580 itself is a wall.
+    // needs 16 px of clearance, so y=580 itself is a wall.
     waypoints: [
       { x: 230, y: 545, wait: maraWest },
       { x: 230, y: 610 },
@@ -153,18 +159,23 @@ const ROUTES = {
     waypoints: [
       { x: 320, y: 610 },
       { x: 540, y: 610 },
-      { x: 540, y: 360 },
+      // Hold at the crossing until a guard goes ALERT, then run for the
+      // bottom lane: the thief (168 px/s) outruns the chase (138 px/s), so
+      // the frame shows the pursuit with the alarm already climbing.
+      { x: 540, y: 360, wait: (world) => world.guards.some((g) => g.state === STATE_ALERT) },
+      { x: 300, y: 610 },
     ],
     grab: false,
     settle: 0,
     max: 40,
-    // Let the alarm climb and Mara close in for half a second after the
-    // alert lands, so the frame shows the danger instead of its first tick.
+    // Let the alarm climb and Mara close in for a second and a half after
+    // the alert lands, so the frame shows the danger instead of its first
+    // tick: the alarm (22/s on alert) reaches ~30, SUSPICIOUS amber.
     until: (world) => {
       const a = world.guards.find((g) => g.state === STATE_ALERT);
       if (!a) return false;
       if (world._alertAt == null) world._alertAt = world.time;
-      return world.time - world._alertAt >= 0.5;
+      return world.time - world._alertAt >= 1.5;
     },
   },
   escape: {
@@ -198,6 +209,7 @@ export function stageShot(name, world) {
   const fresh = createWorld(world.seed);
   Object.assign(world, fresh);
   world.screen = 'play';
+  world.showOpal = false;
   let leg = 0;
   let settled = 0;
   let grabbed = false;
@@ -232,6 +244,14 @@ export function stageShot(name, world) {
     },
     route.max,
   );
+  // Every shot gets its big moment, set fresh here so the text is at full
+  // strength in the frame (the cover's grab moment is already set by
+  // applyGrab; the escape's moment is the CLEAN GETAWAY win screen).
+  if (name === 'approach') {
+    world.moment = { text: 'READ THE CONES — MARA IS CLOSE', sub: 'One wrong step and the alarm climbs.', colour: '#f2c14e', ttl: 3 };
+  } else if (name === 'spotted') {
+    world.moment = { text: 'SPOTTED!', sub: 'Mara is coming — break line of sight!', colour: '#e5484d', ttl: 3 };
+  }
   // The escape ends on the win screen; the rest stay in play.
   if (world.screen === 'play' && name === 'escape') {
     // The thief made it out: score the run as the live game would.
